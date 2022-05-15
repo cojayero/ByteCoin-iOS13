@@ -8,12 +8,59 @@
 
 import Foundation
 
+protocol CoinManagerDelegate {
+    func didUpdatePrice(price:String, currency:String)
+    func didFailWithError(error:Error)
+}
+
 struct CoinManager {
-    
+    var delegate: CoinManagerDelegate?
     let baseURL = "https://rest.coinapi.io/v1/exchangerate/BTC"
-    let apiKey = "YOUR_API_KEY_HERE"
+    let apiKey = "F6F0B987-5C09-42B4-8B6F-54880410EFC5"
+
     
     let currencyArray = ["AUD", "BRL","CAD","CNY","EUR","GBP","HKD","IDR","ILS","INR","JPY","MXN","NOK","NZD","PLN","RON","RUB","SEK","SGD","USD","ZAR"]
 
+    func getCoinPrice(for currency:String){
+        print("la moneda seleccionada es " + currency)
+        performRequest(with: currency)
+        
+    }
+   
+    func performRequest(with currency:String){
+        let urlString = "\(baseURL)/\(currency)?apikey=\(apiKey)"
+        if let url = URL(string: urlString){
+            let session = URLSession(configuration:.default)
+            let task = session.dataTask(with: url) { (data, URLResponse, error) in
+                if error != nil {
+                    self.delegate?.didFailWithError(error:error!)
+                    return
+                }
+                else
+                {
+                    if let safeData = data {
+                        //
+                        if let bitCoinPrice = self.parseJson(safeData){
+                            let priceString = String(format: "%.2f", bitCoinPrice)
+                            self.delegate?.didUpdatePrice(price: priceString, currency: currency)
+                        }
+                    }
+                }
+            }
+            task.resume()
+        }
+    }
     
-}
+    
+    func parseJson(_ data:Data) -> Double? {
+        let decoder = JSONDecoder()
+        do {
+            let decodedData = try decoder.decode(CoinData.self, from: data)
+            let lastPrice = decodedData.rate
+            return lastPrice
+        }
+        catch {
+            delegate?.didFailWithError( error:error)
+            return nil
+        }
+    }}
